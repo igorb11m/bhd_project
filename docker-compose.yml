@@ -1,0 +1,59 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:1.3.16
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    networks:
+      - log-network
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:1.3.16
+    container_name: opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch:9200"]'
+    networks:
+      - log-network
+    depends_on:
+      - opensearch
+
+  rsyslog:
+    image: jumanjiman/rsyslog
+    container_name: rsyslog
+    ports:
+      - "514:514/udp"
+      - "514:514/tcp"
+    volumes:
+      - ./rsyslog/rsyslog.conf:/etc/rsyslog.conf
+      - shared-logs:/var/log/remote
+    networks:
+      - log-network
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat-oss:7.12.1
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - shared-logs:/var/log/remote
+    networks:
+      - log-network
+    depends_on:
+      - opensearch
+      - rsyslog
+
+volumes:
+  opensearch-data:
+  shared-logs:
+
+networks:
+  log-network:
+    driver: bridge
